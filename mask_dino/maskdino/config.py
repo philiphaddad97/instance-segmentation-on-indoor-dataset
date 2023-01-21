@@ -146,3 +146,6 @@ def add_maskdino_config(cfg):
     cfg.MODEL.SWIN.USE_CHECKPOINT = False
 
     cfg.Default_loading=True  # a bug in my d2. resume use this; if first time ResNet load, set it false
+
+    # Default Logging output dir
+    cfg.OUTPUT_DIR = "./mask_dino_output"

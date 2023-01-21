@@ -17,55 +17,41 @@ import copy
 import itertools
 import logging
 import os
-
 from collections import OrderedDict
 from typing import Any, Dict, List, Set
+import random
+import weakref
 
 import torch
 
-# Detectron
+# Detectron2
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
-from detectron2.data import MetadataCatalog, build_detection_train_loader
+from detectron2.data import build_detection_train_loader
 from detectron2.data.datasets import register_coco_instances
-
-from detectron2.evaluation import (
-    # CityscapesInstanceEvaluator,
-    # CityscapesSemSegEvaluator,
-    COCOEvaluator,
-    # COCOPanopticEvaluator,
-    # DatasetEvaluators,
-    # LVISEvaluator,
-    # SemSegEvaluator,
-    verify_results,
-)
+from detectron2.evaluation import (COCOEvaluator, verify_results)
 from detectron2.projects.deeplab import add_deeplab_config, build_lr_scheduler
 from detectron2.solver.build import maybe_add_gradient_clipping
 from detectron2.utils.logger import setup_logger
-
-# MaskDINO
-from maskdino import (
-    COCOInstanceNewBaselineDatasetMapper,
-    # COCOPanopticNewBaselineDatasetMapper,
-    # InstanceSegEvaluator,
-    # MaskFormerSemanticDatasetMapper,
-    SemanticSegmentorWithTTA,
-    add_maskdino_config,
-    DetrDatasetMapper,
-)
-import random
 from detectron2.engine import (
     DefaultTrainer,
     default_argument_parser,
     default_setup,
-    # hooks,
     launch,
     create_ddp_model,
     AMPTrainer,
     SimpleTrainer
 )
-import weakref
+
+# MaskDINO
+from maskdino import (
+    COCOInstanceNewBaselineDatasetMapper,
+    SemanticSegmentorWithTTA,
+    add_maskdino_config,
+    DetrDatasetMapper,
+)
+
 
 
 class Trainer(DefaultTrainer):
@@ -95,7 +81,6 @@ class Trainer(DefaultTrainer):
         kwargs = {
             'trainer': weakref.proxy(self),
         }
-        # kwargs.update(model_ema.may_get_ema_checkpointer(cfg, model)) TODO: release ema training for large models
         self.checkpointer = DetectionCheckpointer(
             # Assume you want to save checkpoints together with logs/statistics
             model,
@@ -128,76 +113,6 @@ class Trainer(DefaultTrainer):
         if output_folder is None:
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
         return COCOEvaluator(dataset_name, output_dir=output_folder)
-        # evaluator_list = []
-        # evaluator_type = MetadataCatalog.get(dataset_name).evaluator_type
-        # # semantic segmentation
-        # if evaluator_type in ["sem_seg", "ade20k_panoptic_seg"]:
-        #     evaluator_list.append(
-        #         SemSegEvaluator(
-        #             dataset_name,
-        #             distributed=True,
-        #             output_dir=output_folder,
-        #         )
-        #     )
-        # # instance segmentation
-        # if evaluator_type == "coco":
-        #     evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
-        # # panoptic segmentation
-        # if evaluator_type in [
-        #     "coco_panoptic_seg",
-        #     "ade20k_panoptic_seg",
-        #     "cityscapes_panoptic_seg",
-        #     "mapillary_vistas_panoptic_seg",
-        # ]:
-        #     if cfg.MODEL.MaskDINO.TEST.PANOPTIC_ON:
-        #         evaluator_list.append(COCOPanopticEvaluator(dataset_name, output_folder))
-        # # COCO
-        # if evaluator_type == "coco_panoptic_seg" and cfg.MODEL.MaskDINO.TEST.INSTANCE_ON:
-        #     evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
-        # if evaluator_type == "coco_panoptic_seg" and cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON:
-        #     evaluator_list.append(SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder))
-        # # Mapillary Vistas
-        # if evaluator_type == "mapillary_vistas_panoptic_seg" and cfg.MODEL.MaskDINO.TEST.INSTANCE_ON:
-        #     evaluator_list.append(InstanceSegEvaluator(dataset_name, output_dir=output_folder))
-        # if evaluator_type == "mapillary_vistas_panoptic_seg" and cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON:
-        #     evaluator_list.append(SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder))
-        # # Cityscapes
-        # if evaluator_type == "cityscapes_instance":
-        #     assert (
-        #         torch.cuda.device_count() > comm.get_rank()
-        #     ), "CityscapesEvaluator currently do not work with multiple machines."
-        #     return CityscapesInstanceEvaluator(dataset_name)
-        # if evaluator_type == "cityscapes_sem_seg":
-        #     assert (
-        #         torch.cuda.device_count() > comm.get_rank()
-        #     ), "CityscapesEvaluator currently do not work with multiple machines."
-        #     return CityscapesSemSegEvaluator(dataset_name)
-        # if evaluator_type == "cityscapes_panoptic_seg":
-        #     if cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON:
-        #         assert (
-        #             torch.cuda.device_count() > comm.get_rank()
-        #         ), "CityscapesEvaluator currently do not work with multiple machines."
-        #         evaluator_list.append(CityscapesSemSegEvaluator(dataset_name))
-        #     if cfg.MODEL.MaskDINO.TEST.INSTANCE_ON:
-        #         assert (
-        #             torch.cuda.device_count() > comm.get_rank()
-        #         ), "CityscapesEvaluator currently do not work with multiple machines."
-        #         evaluator_list.append(CityscapesInstanceEvaluator(dataset_name))
-        # # ADE20K
-        # if evaluator_type == "ade20k_panoptic_seg" and cfg.MODEL.MaskDINO.TEST.INSTANCE_ON:
-        #     evaluator_list.append(InstanceSegEvaluator(dataset_name, output_dir=output_folder))
-        # # LVIS
-        # if evaluator_type == "lvis":
-        #     return LVISEvaluator(dataset_name, output_dir=output_folder)
-        # if len(evaluator_list) == 0:
-        #     raise NotImplementedError(
-        #         "no Evaluator for the dataset {} with the type {}".format(
-        #             dataset_name, evaluator_type
-        #         )
-        #     )
-        # elif len(evaluator_list) == 1:
-        #     return evaluator_list[0]
-        # return DatasetEvaluators(evaluator_list)
 
     @classmethod
     def build_train_loader(cls, cfg):
@@ -209,17 +124,6 @@ class Trainer(DefaultTrainer):
         elif cfg.INPUT.DATASET_MAPPER_NAME == "coco_instance_detr":
             mapper = DetrDatasetMapper(cfg, True)
             return build_detection_train_loader(cfg, mapper=mapper)
-        # # coco panoptic segmentation lsj new baseline
-        # elif cfg.INPUT.DATASET_MAPPER_NAME == "coco_panoptic_lsj":
-        #     mapper = COCOPanopticNewBaselineDatasetMapper(cfg, True)
-        #     return build_detection_train_loader(cfg, mapper=mapper)
-        # # Semantic segmentation dataset mapper
-        # elif cfg.INPUT.DATASET_MAPPER_NAME == "mask_former_semantic":
-        #     mapper = MaskFormerSemanticDatasetMapper(cfg, True)
-        #     return build_detection_train_loader(cfg, mapper=mapper)
-        # else:
-        #     mapper = None
-        #     return build_detection_train_loader(cfg, mapper=mapper)
 
     @classmethod
     def build_lr_scheduler(cls, cfg, optimizer):
@@ -340,7 +244,6 @@ def setup(args):
 
     # for poly lr schedule
     add_deeplab_config(cfg)
-    # add_maskformer2_config(cfg)
     add_maskdino_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
