@@ -1,0 +1,1 @@
+python train_net.py --eval-only --num-gpus 1 --config-file /home/ADND_J1/MaskDINO/configs/coco/instance-segmentation/maskdino_R50_bs16_50ep_3s.yaml MODEL.WEIGHTS /home/ADND_J1/MaskDINO/pre_trained_models/maskdino_r50_50ep_300q_hid1024_3sd1_instance_maskenhanced_mask46.1ap_box51.5ap.pth
