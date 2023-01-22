@@ -52,7 +52,6 @@ from maskdino import (
 )
 
 
-
 class Trainer(DefaultTrainer):
     """
     Extension of the Trainer class adapted to MaskFormer.
