@@ -1,4 +1,6 @@
 python train_net.py \
+--output_dir output_lr00001_maxiter401916_epochs12
+--dataset_path /home/ADND_J1/instance-segmentation-on-indoor-dataset/coco
 --eval-only \
 --num-gpus 1 \
 --config-file /home/ADND_J1/instance-segmentation-on-indoor-dataset/mask_dino/configs/maskdino_R50_bs16_50ep_3s.yaml \
