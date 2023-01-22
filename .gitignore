@@ -1,5 +1,5 @@
 # output dir
-output
+/output_*
 instant_test_output
 inference_test_output
 
@@ -50,3 +50,6 @@ _darcs
 /projects/*/datasets
 /models
 /snippet
+
+cooc*
+mask_dino/app_md
