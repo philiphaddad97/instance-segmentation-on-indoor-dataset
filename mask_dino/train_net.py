@@ -9,7 +9,8 @@ MaskDINO Training Script based on Mask2Former.
 try:
     from shapely.errors import ShapelyDeprecationWarning
     import warnings
-    warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
+
+    warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 except:
     pass
 
@@ -30,7 +31,7 @@ from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
 from detectron2.data import build_detection_train_loader
 from detectron2.data.datasets import register_coco_instances
-from detectron2.evaluation import (COCOEvaluator, verify_results)
+from detectron2.evaluation import COCOEvaluator, verify_results
 from detectron2.projects.deeplab import add_deeplab_config, build_lr_scheduler
 from detectron2.solver.build import maybe_add_gradient_clipping
 from detectron2.utils.logger import setup_logger
@@ -41,7 +42,7 @@ from detectron2.engine import (
     launch,
     create_ddp_model,
     AMPTrainer,
-    SimpleTrainer
+    SimpleTrainer,
 )
 
 # MaskDINO
@@ -56,6 +57,7 @@ class Trainer(DefaultTrainer):
     """
     Extension of the Trainer class adapted to MaskFormer.
     """
+
     def __init__(self, cfg):
         super(DefaultTrainer, self).__init__()
         logger = logging.getLogger("detectron2")
@@ -77,7 +79,7 @@ class Trainer(DefaultTrainer):
 
         # add model EMA
         kwargs = {
-            'trainer': weakref.proxy(self),
+            "trainer": weakref.proxy(self),
         }
         self.checkpointer = DetectionCheckpointer(
             # Assume you want to save checkpoints together with logs/statistics
@@ -118,7 +120,7 @@ class Trainer(DefaultTrainer):
         assert cfg.INPUT.DATASET_MAPPER_NAME == "coco_instance_lsj"
         mapper = COCOInstanceNewBaselineDatasetMapper(cfg, True)
         return build_detection_train_loader(cfg, mapper=mapper)
-        
+
     @classmethod
     def build_lr_scheduler(cls, cfg, optimizer):
         """
@@ -163,7 +165,9 @@ class Trainer(DefaultTrainer):
 
                 hyperparams = copy.copy(defaults)
                 if "backbone" in module_name:
-                    hyperparams["lr"] = hyperparams["lr"] * cfg.SOLVER.BACKBONE_MULTIPLIER
+                    hyperparams["lr"] = (
+                        hyperparams["lr"] * cfg.SOLVER.BACKBONE_MULTIPLIER
+                    )
                 if (
                     "relative_position_bias_table" in module_param_name
                     or "absolute_pos_embed" in module_param_name
@@ -187,7 +191,9 @@ class Trainer(DefaultTrainer):
 
             class FullModelGradientClippingOptimizer(optim):
                 def step(self, closure=None):
-                    all_params = itertools.chain(*[x["params"] for x in self.param_groups])
+                    all_params = itertools.chain(
+                        *[x["params"] for x in self.param_groups]
+                    )
                     torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
                     super().step(closure=closure)
 
@@ -224,10 +230,21 @@ class Trainer(DefaultTrainer):
         res = OrderedDict({k + "_TTA": v for k, v in res.items()})
         return res
 
+
 def register_custom_coco_dataset(dataset_path: str) -> None:
-    annotations_path = dataset_path + 'annotations/'
-    register_coco_instances("coco_train", {}, annotations_path + "instances_train2017.json", dataset_path + "train2017")
-    register_coco_instances("coco_valid", {}, annotations_path + "instances_val2017.json", dataset_path + "val2017")
+    annotations_path = dataset_path + "annotations/"
+    register_coco_instances(
+        "coco_train",
+        {},
+        annotations_path + "instances_train2017.json",
+        dataset_path + "train2017",
+    )
+    register_coco_instances(
+        "coco_valid",
+        {},
+        annotations_path + "instances_val2017.json",
+        dataset_path + "val2017",
+    )
 
 
 def setup(args):
@@ -241,11 +258,13 @@ def setup(args):
     add_maskdino_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
-    if args.output_dir: # If not keep the default value
+    if args.output_dir:  # If not keep the default value
         cfg.OUTPUT_DIR = args.output_dir
     cfg.freeze()
     default_setup(cfg, args)
-    setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="maskdino")
+    setup_logger(
+        output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="maskdino"
+    )
     return cfg
 
 
@@ -259,9 +278,7 @@ def main(args):
             cfg.MODEL.WEIGHTS, resume=args.resume
         )
         checkpointer = DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR)
-        checkpointer.resume_or_load(
-            cfg.MODEL.WEIGHTS, resume=args.resume
-        )
+        checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=args.resume)
         res = Trainer.test(cfg, model)
         if cfg.TEST.AUG.ENABLED:
             res.update(Trainer.test_with_TTA(cfg, model))
@@ -276,12 +293,12 @@ def main(args):
 
 if __name__ == "__main__":
     parser = default_argument_parser()
-    parser.add_argument('--eval_only', action='store_true')
-    parser.add_argument('--EVAL_FLAG', type=int, default=1)
+    parser.add_argument("--eval_only", action="store_true")
+    parser.add_argument("--EVAL_FLAG", type=int, default=1)
     args = parser.parse_args()
     # random port
     port = random.randint(1000, 20000)
-    args.dist_url = 'tcp://127.0.0.1:' + str(port)
+    args.dist_url = "tcp://127.0.0.1:" + str(port)
     print("Command Line Args:", args)
     print("pwd:", os.getcwd())
     launch(

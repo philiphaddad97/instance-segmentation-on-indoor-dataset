@@ -58,7 +58,9 @@ class MaskDINOHead(nn.Module):
 
         return {
             "input_shape": {
-                k: v for k, v in input_shape.items() if k in cfg.MODEL.SEM_SEG_HEAD.IN_FEATURES
+                k: v
+                for k, v in input_shape.items()
+                if k in cfg.MODEL.SEM_SEG_HEAD.IN_FEATURES
             },
             "ignore_value": cfg.MODEL.SEM_SEG_HEAD.IGNORE_VALUE,
             "num_classes": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
@@ -71,12 +73,18 @@ class MaskDINOHead(nn.Module):
             ),
         }
 
-    def forward(self, features, mask=None,targets=None):
-        return self.layers(features, mask,targets=targets)
+    def forward(self, features, mask=None, targets=None):
+        return self.layers(features, mask, targets=targets)
 
-    def layers(self, features, mask=None,targets=None):
-        mask_features, transformer_encoder_features, multi_scale_features = self.pixel_decoder.forward_features(features, mask)
+    def layers(self, features, mask=None, targets=None):
+        (
+            mask_features,
+            transformer_encoder_features,
+            multi_scale_features,
+        ) = self.pixel_decoder.forward_features(features, mask)
 
-        predictions = self.predictor(multi_scale_features, mask_features, mask, targets=targets)
+        predictions = self.predictor(
+            multi_scale_features, mask_features, mask, targets=targets
+        )
 
         return predictions

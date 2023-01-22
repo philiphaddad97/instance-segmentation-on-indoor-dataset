@@ -15,7 +15,7 @@ from torch import nn
 from torch.cuda.amp import autocast
 
 from detectron2.projects.point_rend.point_features import point_sample
-from maskdino.utils.box_ops import generalized_box_iou,box_cxcywh_to_xyxy
+from maskdino.utils.box_ops import generalized_box_iou, box_cxcywh_to_xyxy
 
 
 def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor):
@@ -36,9 +36,7 @@ def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor):
     return loss
 
 
-batch_dice_loss_jit = torch.jit.script(
-    batch_dice_loss
-)  # type: torch.jit.ScriptModule
+batch_dice_loss_jit = torch.jit.script(batch_dice_loss)  # type: torch.jit.ScriptModule
 
 
 def batch_sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor):
@@ -81,8 +79,16 @@ class HungarianMatcher(nn.Module):
     while the others are un-matched (and thus treated as non-objects).
     """
 
-    def __init__(self, cost_class: float = 1, cost_mask: float = 1, cost_dice: float = 1, num_points: int = 0,
-                 cost_box: float = 0, cost_giou: float = 0, panoptic_on: bool = False):
+    def __init__(
+        self,
+        cost_class: float = 1,
+        cost_mask: float = 1,
+        cost_dice: float = 1,
+        num_points: int = 0,
+        cost_box: float = 0,
+        cost_giou: float = 0,
+        panoptic_on: bool = False,
+    ):
         """Creates the matcher
 
         Params:
@@ -99,7 +105,9 @@ class HungarianMatcher(nn.Module):
 
         self.panoptic_on = panoptic_on
 
-        assert cost_class != 0 or cost_mask != 0 or cost_dice != 0, "all costs cant be 0"
+        assert (
+            cost_class != 0 or cost_mask != 0 or cost_dice != 0
+        ), "all costs cant be 0"
 
         self.num_points = num_points
 
@@ -113,10 +121,12 @@ class HungarianMatcher(nn.Module):
         # Iterate through batch size
         for b in range(bs):
             out_bbox = outputs["pred_boxes"][b]
-            if 'box' in cost:
-                tgt_bbox=targets[b]["boxes"]
+            if "box" in cost:
+                tgt_bbox = targets[b]["boxes"]
                 cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
-                cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
+                cost_giou = -generalized_box_iou(
+                    box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox)
+                )
             else:
                 cost_bbox = torch.tensor(0).to(out_bbox)
                 cost_giou = torch.tensor(0).to(out_bbox)
@@ -126,15 +136,19 @@ class HungarianMatcher(nn.Module):
             # focal loss
             alpha = 0.25
             gamma = 2.0
-            neg_cost_class = (1 - alpha) * (out_prob ** gamma) * (-(1 - out_prob + 1e-8).log())
-            pos_cost_class = alpha * ((1 - out_prob) ** gamma) * (-(out_prob + 1e-8).log())
+            neg_cost_class = (
+                (1 - alpha) * (out_prob**gamma) * (-(1 - out_prob + 1e-8).log())
+            )
+            pos_cost_class = (
+                alpha * ((1 - out_prob) ** gamma) * (-(out_prob + 1e-8).log())
+            )
             cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
 
             # Compute the classification cost. Contrary to the loss, we don't use the NLL,
             # but approximate it in 1 - proba[target class].
             # The 1 is a constant that doesn't change the matching, it can be ommitted.
             # cost_class = -out_prob[:, tgt_ids]
-            if 'mask' in cost:
+            if "mask" in cost:
                 out_mask = outputs["pred_masks"][b]  # [num_queries, H_pred, W_pred]
                 # gt masks are already padded when preparing target
                 tgt_mask = targets[b]["masks"].to(out_mask)
@@ -167,10 +181,10 @@ class HungarianMatcher(nn.Module):
             else:
                 cost_mask = torch.tensor(0).to(out_bbox)
                 cost_dice = torch.tensor(0).to(out_bbox)
-            
+
             # Final cost matrix
             if self.panoptic_on:
-                isthing = tgt_ids<80
+                isthing = tgt_ids < 80
                 cost_bbox[:, ~isthing] = cost_bbox[:, isthing].mean()
                 cost_giou[:, ~isthing] = cost_giou[:, isthing].mean()
                 cost_bbox[cost_bbox.isnan()] = 0.0
@@ -180,14 +194,17 @@ class HungarianMatcher(nn.Module):
                 self.cost_mask * cost_mask
                 + self.cost_class * cost_class
                 + self.cost_dice * cost_dice
-                + self.cost_box*cost_bbox
-                + self.cost_giou*cost_giou
+                + self.cost_box * cost_bbox
+                + self.cost_giou * cost_giou
             )
             C = C.reshape(num_queries, -1).cpu()
             indices.append(linear_sum_assignment(C))
 
         return [
-            (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
+            (
+                torch.as_tensor(i, dtype=torch.int64),
+                torch.as_tensor(j, dtype=torch.int64),
+            )
             for i, j in indices
         ]
 

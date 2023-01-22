@@ -41,15 +41,15 @@ def add_maskdino_config(cfg):
     cfg.MODEL.MaskDINO.CLASS_WEIGHT = 4.0
     cfg.MODEL.MaskDINO.DICE_WEIGHT = 5.0
     cfg.MODEL.MaskDINO.MASK_WEIGHT = 5.0
-    cfg.MODEL.MaskDINO.BOX_WEIGHT = 5.
-    cfg.MODEL.MaskDINO.GIOU_WEIGHT = 2.
+    cfg.MODEL.MaskDINO.BOX_WEIGHT = 5.0
+    cfg.MODEL.MaskDINO.GIOU_WEIGHT = 2.0
 
     # cost weight
     cfg.MODEL.MaskDINO.COST_CLASS_WEIGHT = 4.0
     cfg.MODEL.MaskDINO.COST_DICE_WEIGHT = 5.0
     cfg.MODEL.MaskDINO.COST_MASK_WEIGHT = 5.0
-    cfg.MODEL.MaskDINO.COST_BOX_WEIGHT = 5.
-    cfg.MODEL.MaskDINO.COST_GIOU_WEIGHT = 2.
+    cfg.MODEL.MaskDINO.COST_BOX_WEIGHT = 5.0
+    cfg.MODEL.MaskDINO.COST_GIOU_WEIGHT = 2.0
 
     # transformer config
     cfg.MODEL.MaskDINO.NHEADS = 8
@@ -65,22 +65,28 @@ def add_maskdino_config(cfg):
 
     cfg.MODEL.MaskDINO.ENFORCE_INPUT_PROJ = False
     cfg.MODEL.MaskDINO.TWO_STAGE = True
-    cfg.MODEL.MaskDINO.INITIALIZE_BOX_TYPE = 'no'  # ['no', 'bitmask', 'mask2box']
-    cfg.MODEL.MaskDINO.DN="seg"
-    cfg.MODEL.MaskDINO.DN_NOISE_SCALE=0.4
-    cfg.MODEL.MaskDINO.DN_NUM=100
-    cfg.MODEL.MaskDINO.PRED_CONV=False
+    cfg.MODEL.MaskDINO.INITIALIZE_BOX_TYPE = "no"  # ['no', 'bitmask', 'mask2box']
+    cfg.MODEL.MaskDINO.DN = "seg"
+    cfg.MODEL.MaskDINO.DN_NOISE_SCALE = 0.4
+    cfg.MODEL.MaskDINO.DN_NUM = 100
+    cfg.MODEL.MaskDINO.PRED_CONV = False
 
     cfg.MODEL.MaskDINO.EVAL_FLAG = 1
 
     # MSDeformAttn encoder configs
-    cfg.MODEL.SEM_SEG_HEAD.DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES = ["res3", "res4", "res5"]
+    cfg.MODEL.SEM_SEG_HEAD.DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES = [
+        "res3",
+        "res4",
+        "res5",
+    ]
     cfg.MODEL.SEM_SEG_HEAD.DEFORMABLE_TRANSFORMER_ENCODER_N_POINTS = 4
     cfg.MODEL.SEM_SEG_HEAD.DEFORMABLE_TRANSFORMER_ENCODER_N_HEADS = 8
     cfg.MODEL.SEM_SEG_HEAD.DIM_FEEDFORWARD = 1024
     cfg.MODEL.SEM_SEG_HEAD.NUM_FEATURE_LEVELS = 3
     cfg.MODEL.SEM_SEG_HEAD.TOTAL_NUM_FEATURE_LEVELS = 4
-    cfg.MODEL.SEM_SEG_HEAD.FEATURE_ORDER = 'high2low'  # ['low2high', 'high2low'] high2low: from high level to low level
+    cfg.MODEL.SEM_SEG_HEAD.FEATURE_ORDER = (
+        "high2low"  # ['low2high', 'high2low'] high2low: from high level to low level
+    )
 
     #####################
 
@@ -145,7 +151,9 @@ def add_maskdino_config(cfg):
     cfg.MODEL.SWIN.OUT_FEATURES = ["res2", "res3", "res4", "res5"]
     cfg.MODEL.SWIN.USE_CHECKPOINT = False
 
-    cfg.Default_loading=True  # a bug in my d2. resume use this; if first time ResNet load, set it false
+    cfg.Default_loading = (
+        True  # a bug in my d2. resume use this; if first time ResNet load, set it false
+    )
 
     # Default Logging output dir
     cfg.OUTPUT_DIR = "./mask_dino_output"

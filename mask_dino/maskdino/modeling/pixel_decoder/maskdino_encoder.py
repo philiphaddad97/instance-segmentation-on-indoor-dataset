@@ -41,18 +41,31 @@ def build_pixel_decoder(cfg, input_shape):
 
 # MSDeformAttn Transformer encoder in deformable detr
 class MSDeformAttnTransformerEncoderOnly(nn.Module):
-    def __init__(self, d_model=256, nhead=8,
-                 num_encoder_layers=6, dim_feedforward=1024, dropout=0.1,
-                 activation="relu",
-                 num_feature_levels=4, enc_n_points=4,):
+    def __init__(
+        self,
+        d_model=256,
+        nhead=8,
+        num_encoder_layers=6,
+        dim_feedforward=1024,
+        dropout=0.1,
+        activation="relu",
+        num_feature_levels=4,
+        enc_n_points=4,
+    ):
         super().__init__()
 
         self.d_model = d_model
         self.nhead = nhead
 
-        encoder_layer = MSDeformAttnTransformerEncoderLayer(d_model, dim_feedforward,
-                                                            dropout, activation,
-                                                            num_feature_levels, nhead, enc_n_points)
+        encoder_layer = MSDeformAttnTransformerEncoderLayer(
+            d_model,
+            dim_feedforward,
+            dropout,
+            activation,
+            num_feature_levels,
+            nhead,
+            enc_n_points,
+        )
         self.encoder = MSDeformAttnTransformerEncoder(encoder_layer, num_encoder_layers)
 
         self.level_embed = nn.Parameter(torch.Tensor(num_feature_levels, d_model))
@@ -79,13 +92,18 @@ class MSDeformAttnTransformerEncoderOnly(nn.Module):
 
     def forward(self, srcs, masks, pos_embeds):
 
-        enable_mask=0
+        enable_mask = 0
         if masks is not None:
             for src in srcs:
-                if src.size(2)%32 or src.size(3)%32:
+                if src.size(2) % 32 or src.size(3) % 32:
                     enable_mask = 1
-        if enable_mask==0:
-            masks = [torch.zeros((x.size(0), x.size(2), x.size(3)), device=x.device, dtype=torch.bool) for x in srcs]
+        if enable_mask == 0:
+            masks = [
+                torch.zeros(
+                    (x.size(0), x.size(2), x.size(3)), device=x.device, dtype=torch.bool
+                )
+                for x in srcs
+            ]
         # prepare input for encoder
         src_flatten = []
         mask_flatten = []
@@ -105,21 +123,38 @@ class MSDeformAttnTransformerEncoderOnly(nn.Module):
         src_flatten = torch.cat(src_flatten, 1)
         mask_flatten = torch.cat(mask_flatten, 1)
         lvl_pos_embed_flatten = torch.cat(lvl_pos_embed_flatten, 1)
-        spatial_shapes = torch.as_tensor(spatial_shapes, dtype=torch.long, device=src_flatten.device)
-        level_start_index = torch.cat((spatial_shapes.new_zeros((1, )), spatial_shapes.prod(1).cumsum(0)[:-1]))
+        spatial_shapes = torch.as_tensor(
+            spatial_shapes, dtype=torch.long, device=src_flatten.device
+        )
+        level_start_index = torch.cat(
+            (spatial_shapes.new_zeros((1,)), spatial_shapes.prod(1).cumsum(0)[:-1])
+        )
         valid_ratios = torch.stack([self.get_valid_ratio(m) for m in masks], 1)
 
         # encoder
-        memory = self.encoder(src_flatten, spatial_shapes, level_start_index, valid_ratios, lvl_pos_embed_flatten, mask_flatten)
+        memory = self.encoder(
+            src_flatten,
+            spatial_shapes,
+            level_start_index,
+            valid_ratios,
+            lvl_pos_embed_flatten,
+            mask_flatten,
+        )
 
         return memory, spatial_shapes, level_start_index
 
 
 class MSDeformAttnTransformerEncoderLayer(nn.Module):
-    def __init__(self,
-                 d_model=256, d_ffn=1024,
-                 dropout=0.1, activation="relu",
-                 n_levels=4, n_heads=8, n_points=4):
+    def __init__(
+        self,
+        d_model=256,
+        d_ffn=1024,
+        dropout=0.1,
+        activation="relu",
+        n_levels=4,
+        n_heads=8,
+        n_points=4,
+    ):
         super().__init__()
 
         # self attention
@@ -145,9 +180,24 @@ class MSDeformAttnTransformerEncoderLayer(nn.Module):
         src = self.norm2(src)
         return src
 
-    def forward(self, src, pos, reference_points, spatial_shapes, level_start_index, padding_mask=None):
+    def forward(
+        self,
+        src,
+        pos,
+        reference_points,
+        spatial_shapes,
+        level_start_index,
+        padding_mask=None,
+    ):
         # self attention
-        src2 = self.self_attn(self.with_pos_embed(src, pos), reference_points, src, spatial_shapes, level_start_index, padding_mask)
+        src2 = self.self_attn(
+            self.with_pos_embed(src, pos),
+            reference_points,
+            src,
+            spatial_shapes,
+            level_start_index,
+            padding_mask,
+        )
         src = src + self.dropout1(src2)
         src = self.norm1(src)
 
@@ -168,8 +218,10 @@ class MSDeformAttnTransformerEncoder(nn.Module):
         reference_points_list = []
         for lvl, (H_, W_) in enumerate(spatial_shapes):
 
-            ref_y, ref_x = torch.meshgrid(torch.linspace(0.5, H_ - 0.5, H_, dtype=torch.float32, device=device),
-                                          torch.linspace(0.5, W_ - 0.5, W_, dtype=torch.float32, device=device))
+            ref_y, ref_x = torch.meshgrid(
+                torch.linspace(0.5, H_ - 0.5, H_, dtype=torch.float32, device=device),
+                torch.linspace(0.5, W_ - 0.5, W_, dtype=torch.float32, device=device),
+            )
             ref_y = ref_y.reshape(-1)[None] / (valid_ratios[:, None, lvl, 1] * H_)
             ref_x = ref_x.reshape(-1)[None] / (valid_ratios[:, None, lvl, 0] * W_)
             ref = torch.stack((ref_x, ref_y), -1)
@@ -178,11 +230,28 @@ class MSDeformAttnTransformerEncoder(nn.Module):
         reference_points = reference_points[:, :, None] * valid_ratios[:, None]
         return reference_points
 
-    def forward(self, src, spatial_shapes, level_start_index, valid_ratios, pos=None, padding_mask=None):
+    def forward(
+        self,
+        src,
+        spatial_shapes,
+        level_start_index,
+        valid_ratios,
+        pos=None,
+        padding_mask=None,
+    ):
         output = src
-        reference_points = self.get_reference_points(spatial_shapes, valid_ratios, device=src.device)
+        reference_points = self.get_reference_points(
+            spatial_shapes, valid_ratios, device=src.device
+        )
         for _, layer in enumerate(self.layers):
-            output = layer(output, pos, reference_points, spatial_shapes, level_start_index, padding_mask)
+            output = layer(
+                output,
+                pos,
+                reference_points,
+                spatial_shapes,
+                level_start_index,
+                padding_mask,
+            )
 
         return output
 
@@ -192,6 +261,7 @@ class MaskDINOEncoder(nn.Module):
     """
     This is the multi-scale encoder in detection models, also named as pixel decoder in segmentation models.
     """
+
     @configurable
     def __init__(
         self,
@@ -238,42 +308,63 @@ class MaskDINOEncoder(nn.Module):
         self.feature_order = feature_order
 
         if feature_order == "low2high":
-            transformer_input_shape = sorted(transformer_input_shape.items(), key=lambda x: -x[1].stride)
+            transformer_input_shape = sorted(
+                transformer_input_shape.items(), key=lambda x: -x[1].stride
+            )
         else:
-            transformer_input_shape = sorted(transformer_input_shape.items(), key=lambda x: x[1].stride)
-        self.transformer_in_features = [k for k, v in transformer_input_shape]  # starting from "res2" to "res5"
+            transformer_input_shape = sorted(
+                transformer_input_shape.items(), key=lambda x: x[1].stride
+            )
+        self.transformer_in_features = [
+            k for k, v in transformer_input_shape
+        ]  # starting from "res2" to "res5"
         transformer_in_channels = [v.channels for k, v in transformer_input_shape]
-        self.transformer_feature_strides = [v.stride for k, v in transformer_input_shape]  # to decide extra FPN layers
+        self.transformer_feature_strides = [
+            v.stride for k, v in transformer_input_shape
+        ]  # to decide extra FPN layers
 
         self.maskdino_num_feature_levels = num_feature_levels  # always use 3 scales
         self.total_num_feature_levels = total_num_feature_levels
         self.common_stride = common_stride
 
         self.transformer_num_feature_levels = len(self.transformer_in_features)
-        self.low_resolution_index = transformer_in_channels.index(max(transformer_in_channels))
-        self.high_resolution_index = 0 if self.feature_order == 'low2high' else -1
+        self.low_resolution_index = transformer_in_channels.index(
+            max(transformer_in_channels)
+        )
+        self.high_resolution_index = 0 if self.feature_order == "low2high" else -1
         if self.transformer_num_feature_levels > 1:
             input_proj_list = []
             for in_channels in transformer_in_channels[::-1]:
-                input_proj_list.append(nn.Sequential(
-                    nn.Conv2d(in_channels, conv_dim, kernel_size=1),
-                    nn.GroupNorm(32, conv_dim),
-                ))
+                input_proj_list.append(
+                    nn.Sequential(
+                        nn.Conv2d(in_channels, conv_dim, kernel_size=1),
+                        nn.GroupNorm(32, conv_dim),
+                    )
+                )
             # input projectino for downsample
             in_channels = max(transformer_in_channels)
-            for _ in range(self.total_num_feature_levels - self.transformer_num_feature_levels):  # exclude the res2
-                input_proj_list.append(nn.Sequential(
-                    nn.Conv2d(in_channels, conv_dim, kernel_size=3, stride=2, padding=1),
-                    nn.GroupNorm(32, conv_dim),
-                ))
+            for _ in range(
+                self.total_num_feature_levels - self.transformer_num_feature_levels
+            ):  # exclude the res2
+                input_proj_list.append(
+                    nn.Sequential(
+                        nn.Conv2d(
+                            in_channels, conv_dim, kernel_size=3, stride=2, padding=1
+                        ),
+                        nn.GroupNorm(32, conv_dim),
+                    )
+                )
                 in_channels = conv_dim
             self.input_proj = nn.ModuleList(input_proj_list)
         else:
-            self.input_proj = nn.ModuleList([
-                nn.Sequential(
-                    nn.Conv2d(transformer_in_channels[-1], conv_dim, kernel_size=1),
-                    nn.GroupNorm(32, conv_dim),
-                )])
+            self.input_proj = nn.ModuleList(
+                [
+                    nn.Sequential(
+                        nn.Conv2d(transformer_in_channels[-1], conv_dim, kernel_size=1),
+                        nn.GroupNorm(32, conv_dim),
+                    )
+                ]
+            )
 
         for proj in self.input_proj:
             nn.init.xavier_uniform_(proj[0].weight, gain=1)
@@ -308,7 +399,7 @@ class MaskDINOEncoder(nn.Module):
         output_convs = []
 
         use_bias = norm == ""
-        for idx, in_channels in enumerate(self.feature_channels[:self.num_fpn_levels]):
+        for idx, in_channels in enumerate(self.feature_channels[: self.num_fpn_levels]):
             lateral_norm = get_norm(norm, conv_dim)
             output_norm = get_norm(norm, conv_dim)
 
@@ -341,20 +432,30 @@ class MaskDINOEncoder(nn.Module):
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):
         ret = {}
         ret["input_shape"] = {
-            k: v for k, v in input_shape.items() if k in cfg.MODEL.SEM_SEG_HEAD.IN_FEATURES
+            k: v
+            for k, v in input_shape.items()
+            if k in cfg.MODEL.SEM_SEG_HEAD.IN_FEATURES
         }
         ret["conv_dim"] = cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM
         ret["mask_dim"] = cfg.MODEL.SEM_SEG_HEAD.MASK_DIM
         ret["norm"] = cfg.MODEL.SEM_SEG_HEAD.NORM
         ret["transformer_dropout"] = cfg.MODEL.MaskDINO.DROPOUT
         ret["transformer_nheads"] = cfg.MODEL.MaskDINO.NHEADS
-        ret["transformer_dim_feedforward"] = cfg.MODEL.SEM_SEG_HEAD.DIM_FEEDFORWARD  # deformable transformer encoder
+        ret[
+            "transformer_dim_feedforward"
+        ] = cfg.MODEL.SEM_SEG_HEAD.DIM_FEEDFORWARD  # deformable transformer encoder
         ret[
             "transformer_enc_layers"
         ] = cfg.MODEL.SEM_SEG_HEAD.TRANSFORMER_ENC_LAYERS  # a separate config
-        ret["transformer_in_features"] = cfg.MODEL.SEM_SEG_HEAD.DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES  # ['res3', 'res4', 'res5']
+        ret[
+            "transformer_in_features"
+        ] = (
+            cfg.MODEL.SEM_SEG_HEAD.DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES
+        )  # ['res3', 'res4', 'res5']
         ret["common_stride"] = cfg.MODEL.SEM_SEG_HEAD.COMMON_STRIDE
-        ret["total_num_feature_levels"] = cfg.MODEL.SEM_SEG_HEAD.TOTAL_NUM_FEATURE_LEVELS
+        ret[
+            "total_num_feature_levels"
+        ] = cfg.MODEL.SEM_SEG_HEAD.TOTAL_NUM_FEATURE_LEVELS
         ret["num_feature_levels"] = cfg.MODEL.SEM_SEG_HEAD.NUM_FEATURE_LEVELS
         ret["feature_order"] = cfg.MODEL.SEM_SEG_HEAD.FEATURE_ORDER
         return ret
@@ -373,7 +474,9 @@ class MaskDINOEncoder(nn.Module):
         srcsl = []
         posl = []
         if self.total_num_feature_levels > self.transformer_num_feature_levels:
-            smallest_feat = features[self.transformer_in_features[self.low_resolution_index]].float()
+            smallest_feat = features[
+                self.transformer_in_features[self.low_resolution_index]
+            ].float()
             _len_srcs = self.transformer_num_feature_levels
             for l in range(_len_srcs, self.total_num_feature_levels):
                 if l == _len_srcs:
@@ -388,9 +491,9 @@ class MaskDINOEncoder(nn.Module):
             x = features[f].float()  # deformable detr does not support half precision
             srcs.append(self.input_proj[idx](x))
             pos.append(self.pe_layer(x))
-        srcs.extend(srcsl) if self.feature_order == 'low2high' else srcsl.extend(srcs)
-        pos.extend(posl) if self.feature_order == 'low2high' else posl.extend(pos)
-        if self.feature_order != 'low2high':
+        srcs.extend(srcsl) if self.feature_order == "low2high" else srcsl.extend(srcs)
+        pos.extend(posl) if self.feature_order == "low2high" else posl.extend(pos)
+        if self.feature_order != "low2high":
             srcs = srcsl
             pos = posl
         y, spatial_shapes, level_start_index = self.transformer(srcs, masks, pos)
@@ -399,7 +502,9 @@ class MaskDINOEncoder(nn.Module):
         split_size_or_sections = [None] * self.total_num_feature_levels
         for i in range(self.total_num_feature_levels):
             if i < self.total_num_feature_levels - 1:
-                split_size_or_sections[i] = level_start_index[i + 1] - level_start_index[i]
+                split_size_or_sections[i] = (
+                    level_start_index[i + 1] - level_start_index[i]
+                )
             else:
                 split_size_or_sections[i] = y.shape[1] - level_start_index[i]
         y = torch.split(y, split_size_or_sections, dim=1)
@@ -408,17 +513,26 @@ class MaskDINOEncoder(nn.Module):
         multi_scale_features = []
         num_cur_levels = 0
         for i, z in enumerate(y):
-            out.append(z.transpose(1, 2).view(bs, -1, spatial_shapes[i][0], spatial_shapes[i][1]))
+            out.append(
+                z.transpose(1, 2).view(
+                    bs, -1, spatial_shapes[i][0], spatial_shapes[i][1]
+                )
+            )
 
         # append `out` with extra FPN levels
         # Reverse feature maps into top-down order (from low to high resolution)
-        for idx, f in enumerate(self.in_features[:self.num_fpn_levels][::-1]):
+        for idx, f in enumerate(self.in_features[: self.num_fpn_levels][::-1]):
             x = features[f].float()
             lateral_conv = self.lateral_convs[idx]
             output_conv = self.output_convs[idx]
             cur_fpn = lateral_conv(x)
             # Following FPN implementation, we use nearest upsampling here
-            y = cur_fpn + F.interpolate(out[self.high_resolution_index], size=cur_fpn.shape[-2:], mode="bilinear", align_corners=False)
+            y = cur_fpn + F.interpolate(
+                out[self.high_resolution_index],
+                size=cur_fpn.shape[-2:],
+                mode="bilinear",
+                align_corners=False,
+            )
             y = output_conv(y)
             out.append(y)
         for o in out:
@@ -426,4 +540,3 @@ class MaskDINOEncoder(nn.Module):
                 multi_scale_features.append(o)
                 num_cur_levels += 1
         return self.mask_features(out[-1]), out[0], multi_scale_features
-

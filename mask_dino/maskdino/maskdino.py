@@ -94,7 +94,9 @@ class MaskDINO(nn.Module):
             size_divisibility = self.backbone.size_divisibility
         self.size_divisibility = size_divisibility
         self.sem_seg_postprocess_before_inference = sem_seg_postprocess_before_inference
-        self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False)
+        self.register_buffer(
+            "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False
+        )
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
 
         # additional args
@@ -111,7 +113,7 @@ class MaskDINO(nn.Module):
         if not self.semantic_on:
             assert self.sem_seg_postprocess_before_inference
 
-        print('criterion.weight_dict ', self.criterion.weight_dict)
+        print("criterion.weight_dict ", self.criterion.weight_dict)
 
     @classmethod
     def from_config(cls, cfg):
@@ -145,22 +147,30 @@ class MaskDINO(nn.Module):
 
         weight_dict = {"loss_ce": class_weight}
         weight_dict.update({"loss_mask": mask_weight, "loss_dice": dice_weight})
-        weight_dict.update({"loss_bbox":box_weight,"loss_giou":giou_weight})
+        weight_dict.update({"loss_bbox": box_weight, "loss_giou": giou_weight})
         # two stage is the query selection scheme
         if cfg.MODEL.MaskDINO.TWO_STAGE:
             interm_weight_dict = {}
-            interm_weight_dict.update({k + f'_interm': v for k, v in weight_dict.items()})
+            interm_weight_dict.update(
+                {k + f"_interm": v for k, v in weight_dict.items()}
+            )
             weight_dict.update(interm_weight_dict)
         # denoising training
         dn = cfg.MODEL.MaskDINO.DN
         if dn == "standard":
-            weight_dict.update({k + f"_dn": v for k, v in weight_dict.items() if k!="loss_mask" and k!="loss_dice" })
-            dn_losses=["labels","boxes"]
+            weight_dict.update(
+                {
+                    k + f"_dn": v
+                    for k, v in weight_dict.items()
+                    if k != "loss_mask" and k != "loss_dice"
+                }
+            )
+            dn_losses = ["labels", "boxes"]
         elif dn == "seg":
             weight_dict.update({k + f"_dn": v for k, v in weight_dict.items()})
-            dn_losses=["labels", "masks","boxes"]
+            dn_losses = ["labels", "masks", "boxes"]
         else:
-            dn_losses=[]
+            dn_losses = []
         if deep_supervision:
             dec_layers = cfg.MODEL.MaskDINO.DEC_LAYERS
             aux_weight_dict = {}
@@ -168,7 +178,7 @@ class MaskDINO(nn.Module):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
         if cfg.MODEL.MaskDINO.BOX_LOSS:
-            losses = ["labels", "masks","boxes"]
+            losses = ["labels", "masks", "boxes"]
         else:
             losses = ["labels", "masks"]
         # building criterion
@@ -183,8 +193,14 @@ class MaskDINO(nn.Module):
             importance_sample_ratio=cfg.MODEL.MaskDINO.IMPORTANCE_SAMPLE_RATIO,
             dn=cfg.MODEL.MaskDINO.DN,
             dn_losses=dn_losses,
-            panoptic_on=(cfg.MODEL.MaskDINO.TEST.PANOPTIC_ON or cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON) and ~cfg.MODEL.MaskDINO.PANO_BOX_LOSS,
-            semantic_ce_loss=cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON and cfg.MODEL.MaskDINO.SEMANTIC_CE_LOSS and ~cfg.MODEL.MaskDINO.TEST.PANOPTIC_ON,
+            panoptic_on=(
+                cfg.MODEL.MaskDINO.TEST.PANOPTIC_ON
+                or cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON
+            )
+            and ~cfg.MODEL.MaskDINO.PANO_BOX_LOSS,
+            semantic_ce_loss=cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON
+            and cfg.MODEL.MaskDINO.SEMANTIC_CE_LOSS
+            and ~cfg.MODEL.MaskDINO.TEST.PANOPTIC_ON,
         )
 
         return {
@@ -212,7 +228,9 @@ class MaskDINO(nn.Module):
             "focus_on_box": cfg.MODEL.MaskDINO.TEST.TEST_FOUCUS_ON_BOX,
             "transform_eval": cfg.MODEL.MaskDINO.TEST.PANO_TRANSFORM_EVAL,
             "pano_temp": cfg.MODEL.MaskDINO.TEST.PANO_TEMPERATURE,
-            "semantic_ce_loss": cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON and cfg.MODEL.MaskDINO.SEMANTIC_CE_LOSS and ~cfg.MODEL.MaskDINO.TEST.PANOPTIC_ON
+            "semantic_ce_loss": cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON
+            and cfg.MODEL.MaskDINO.SEMANTIC_CE_LOSS
+            and ~cfg.MODEL.MaskDINO.TEST.PANOPTIC_ON,
         }
 
     @property
@@ -256,15 +274,15 @@ class MaskDINO(nn.Module):
             # mask classification target
             if "instances" in batched_inputs[0]:
                 gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
-                if 'detr' in self.data_loader:
+                if "detr" in self.data_loader:
                     targets = self.prepare_targets_detr(gt_instances, images)
                 else:
                     targets = self.prepare_targets(gt_instances, images)
             else:
                 targets = None
-            outputs,mask_dict = self.sem_seg_head(features,targets=targets)
+            outputs, mask_dict = self.sem_seg_head(features, targets=targets)
             # bipartite matching-based loss
-            losses = self.criterion(outputs, targets,mask_dict)
+            losses = self.criterion(outputs, targets, mask_dict)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
@@ -289,14 +307,23 @@ class MaskDINO(nn.Module):
             del outputs
 
             processed_results = []
-            for mask_cls_result, mask_pred_result, mask_box_result, input_per_image, image_size in zip(
-                mask_cls_results, mask_pred_results, mask_box_results, batched_inputs, images.image_sizes
+            for (
+                mask_cls_result,
+                mask_pred_result,
+                mask_box_result,
+                input_per_image,
+                image_size,
+            ) in zip(
+                mask_cls_results,
+                mask_pred_results,
+                mask_box_results,
+                batched_inputs,
+                images.image_sizes,
             ):  # image_size is augmented size, not divisible to 32
                 height = input_per_image.get("height", image_size[0])  # real size
                 width = input_per_image.get("width", image_size[1])
                 processed_results.append({})
                 new_size = mask_pred_result.shape[-2:]  # padded size (divisible to 32)
-
 
                 if self.sem_seg_postprocess_before_inference:
                     mask_pred_result = retry_if_cuda_oom(sem_seg_postprocess)(
@@ -308,25 +335,35 @@ class MaskDINO(nn.Module):
 
                 # semantic segmentation inference
                 if self.semantic_on:
-                    r = retry_if_cuda_oom(self.semantic_inference)(mask_cls_result, mask_pred_result)
+                    r = retry_if_cuda_oom(self.semantic_inference)(
+                        mask_cls_result, mask_pred_result
+                    )
                     if not self.sem_seg_postprocess_before_inference:
-                        r = retry_if_cuda_oom(sem_seg_postprocess)(r, image_size, height, width)
+                        r = retry_if_cuda_oom(sem_seg_postprocess)(
+                            r, image_size, height, width
+                        )
                     processed_results[-1]["sem_seg"] = r
 
                 # panoptic segmentation inference
                 if self.panoptic_on:
-                    panoptic_r = retry_if_cuda_oom(self.panoptic_inference)(mask_cls_result, mask_pred_result)
+                    panoptic_r = retry_if_cuda_oom(self.panoptic_inference)(
+                        mask_cls_result, mask_pred_result
+                    )
                     processed_results[-1]["panoptic_seg"] = panoptic_r
 
                 # instance segmentation inference
 
                 if self.instance_on:
                     mask_box_result = mask_box_result.to(mask_pred_result)
-                    height = new_size[0]/image_size[0]*height
-                    width = new_size[1]/image_size[1]*width
-                    mask_box_result = self.box_postprocess(mask_box_result, height, width)
+                    height = new_size[0] / image_size[0] * height
+                    width = new_size[1] / image_size[1] * width
+                    mask_box_result = self.box_postprocess(
+                        mask_box_result, height, width
+                    )
 
-                    instance_r = retry_if_cuda_oom(self.instance_inference)(mask_cls_result, mask_pred_result, mask_box_result)
+                    instance_r = retry_if_cuda_oom(self.instance_inference)(
+                        mask_cls_result, mask_pred_result, mask_box_result
+                    )
                     processed_results[-1]["instances"] = instance_r
 
             return processed_results
@@ -337,16 +374,25 @@ class MaskDINO(nn.Module):
         for targets_per_image in targets:
             # pad gt
             h, w = targets_per_image.image_size
-            image_size_xyxy = torch.as_tensor([w, h, w, h], dtype=torch.float, device=self.device)
+            image_size_xyxy = torch.as_tensor(
+                [w, h, w, h], dtype=torch.float, device=self.device
+            )
 
             gt_masks = targets_per_image.gt_masks
-            padded_masks = torch.zeros((gt_masks.shape[0], h_pad, w_pad), dtype=gt_masks.dtype, device=gt_masks.device)
+            padded_masks = torch.zeros(
+                (gt_masks.shape[0], h_pad, w_pad),
+                dtype=gt_masks.dtype,
+                device=gt_masks.device,
+            )
             padded_masks[:, : gt_masks.shape[1], : gt_masks.shape[2]] = gt_masks
             new_targets.append(
                 {
                     "labels": targets_per_image.gt_classes,
                     "masks": padded_masks,
-                    "boxes":box_ops.box_xyxy_to_cxcywh(targets_per_image.gt_boxes.tensor)/image_size_xyxy
+                    "boxes": box_ops.box_xyxy_to_cxcywh(
+                        targets_per_image.gt_boxes.tensor
+                    )
+                    / image_size_xyxy,
                 }
             )
         return new_targets
@@ -357,16 +403,25 @@ class MaskDINO(nn.Module):
         for targets_per_image in targets:
             # pad gt
             h, w = targets_per_image.image_size
-            image_size_xyxy = torch.as_tensor([w, h, w, h], dtype=torch.float, device=self.device)
+            image_size_xyxy = torch.as_tensor(
+                [w, h, w, h], dtype=torch.float, device=self.device
+            )
 
             gt_masks = targets_per_image.gt_masks
-            padded_masks = torch.zeros((gt_masks.shape[0], h_pad, w_pad), dtype=gt_masks.dtype, device=gt_masks.device)
+            padded_masks = torch.zeros(
+                (gt_masks.shape[0], h_pad, w_pad),
+                dtype=gt_masks.dtype,
+                device=gt_masks.device,
+            )
             padded_masks[:, : gt_masks.shape[1], : gt_masks.shape[2]] = gt_masks
             new_targets.append(
                 {
                     "labels": targets_per_image.gt_classes,
                     "masks": padded_masks,
-                    "boxes": box_ops.box_xyxy_to_cxcywh(targets_per_image.gt_boxes.tensor) / image_size_xyxy
+                    "boxes": box_ops.box_xyxy_to_cxcywh(
+                        targets_per_image.gt_boxes.tensor
+                    )
+                    / image_size_xyxy,
                 }
             )
         return new_targets
@@ -398,7 +453,9 @@ class MaskDINO(nn.Module):
         T = self.pano_temp
         scores, labels = mask_cls.sigmoid().max(-1)
         mask_pred = mask_pred.sigmoid()
-        keep = labels.ne(self.sem_seg_head.num_classes) & (scores > self.object_mask_threshold)
+        keep = labels.ne(self.sem_seg_head.num_classes) & (
+            scores > self.object_mask_threshold
+        )
         # added process
         if self.transform_eval:
             scores, labels = F.softmax(mask_cls.sigmoid() / T, dim=-1).max(-1)
@@ -422,7 +479,10 @@ class MaskDINO(nn.Module):
             stuff_memory_list = {}
             for k in range(cur_classes.shape[0]):
                 pred_class = cur_classes[k].item()
-                isthing = pred_class in self.metadata.thing_dataset_id_to_contiguous_id.values()
+                isthing = (
+                    pred_class
+                    in self.metadata.thing_dataset_id_to_contiguous_id.values()
+                )
                 mask_area = (cur_mask_ids == k).sum().item()
                 original_area = (cur_masks[k] >= prob).sum().item()
                 mask = (cur_mask_ids == k) & (cur_masks[k] >= prob)
@@ -456,8 +516,15 @@ class MaskDINO(nn.Module):
         # mask_pred is already processed to have the same shape as original input
         image_size = mask_pred.shape[-2:]
         scores = mask_cls.sigmoid()  # [100, 80]
-        labels = torch.arange(self.sem_seg_head.num_classes, device=self.device).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
-        scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.test_topk_per_image, sorted=False)  # select 100
+        labels = (
+            torch.arange(self.sem_seg_head.num_classes, device=self.device)
+            .unsqueeze(0)
+            .repeat(self.num_queries, 1)
+            .flatten(0, 1)
+        )
+        scores_per_image, topk_indices = scores.flatten(0, 1).topk(
+            self.test_topk_per_image, sorted=False
+        )  # select 100
         labels_per_image = labels[topk_indices]
         topk_indices = topk_indices // self.sem_seg_head.num_classes
         mask_pred = mask_pred[topk_indices]
@@ -465,7 +532,9 @@ class MaskDINO(nn.Module):
         if self.panoptic_on:
             keep = torch.zeros_like(scores_per_image).bool()
             for i, lab in enumerate(labels_per_image):
-                keep[i] = lab in self.metadata.thing_dataset_id_to_contiguous_id.values()
+                keep[i] = (
+                    lab in self.metadata.thing_dataset_id_to_contiguous_id.values()
+                )
             scores_per_image = scores_per_image[keep]
             labels_per_image = labels_per_image[keep]
             mask_pred = mask_pred[keep]
@@ -481,7 +550,9 @@ class MaskDINO(nn.Module):
         # result.pred_boxes = BitMasks(mask_pred > 0).get_bounding_boxes()
 
         # calculate average mask prob
-        mask_scores_per_image = (mask_pred.sigmoid().flatten(1) * result.pred_masks.flatten(1)).sum(1) / (result.pred_masks.flatten(1).sum(1) + 1e-6)
+        mask_scores_per_image = (
+            mask_pred.sigmoid().flatten(1) * result.pred_masks.flatten(1)
+        ).sum(1) / (result.pred_masks.flatten(1).sum(1) + 1e-6)
         if self.focus_on_box:
             mask_scores_per_image = 1.0
         result.scores = scores_per_image * mask_scores_per_image
@@ -495,5 +566,3 @@ class MaskDINO(nn.Module):
         scale_fct = scale_fct.to(out_bbox)
         boxes = boxes * scale_fct
         return boxes
-
-
