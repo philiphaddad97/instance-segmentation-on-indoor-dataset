@@ -11,13 +11,8 @@ from . import modeling
 from .config import add_maskdino_config
 
 # dataset loading
-from .data.dataset_mappers.coco_instance_new_baseline_dataset_mapper import COCOInstanceNewBaselineDatasetMapper
-from .data.dataset_mappers.coco_panoptic_new_baseline_dataset_mapper import COCOPanopticNewBaselineDatasetMapper
-from .data.dataset_mappers.detr_dataset_mapper import DetrDatasetMapper
-
-from .data.dataset_mappers.mask_former_semantic_dataset_mapper import (
-    MaskFormerSemanticDatasetMapper,
-)
+from data.coco_instance_new_baseline_dataset_mapper import COCOInstanceNewBaselineDatasetMapper
+from data.detr_dataset_mapper import DetrDatasetMapper
 
 # models
 from .maskdino import MaskDINO

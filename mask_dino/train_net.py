@@ -49,7 +49,6 @@ from maskdino import (
     COCOInstanceNewBaselineDatasetMapper,
     SemanticSegmentorWithTTA,
     add_maskdino_config,
-    DetrDatasetMapper,
 )
 
 
@@ -117,14 +116,10 @@ class Trainer(DefaultTrainer):
     @classmethod
     def build_train_loader(cls, cfg):
         # coco instance segmentation lsj new baseline
-        if cfg.INPUT.DATASET_MAPPER_NAME == "coco_instance_lsj":
-            mapper = COCOInstanceNewBaselineDatasetMapper(cfg, True)
-            return build_detection_train_loader(cfg, mapper=mapper)
-        # coco instance segmentation lsj new baseline
-        elif cfg.INPUT.DATASET_MAPPER_NAME == "coco_instance_detr":
-            mapper = DetrDatasetMapper(cfg, True)
-            return build_detection_train_loader(cfg, mapper=mapper)
-
+        assert cfg.INPUT.DATASET_MAPPER_NAME == "coco_instance_lsj"
+        mapper = COCOInstanceNewBaselineDatasetMapper(cfg, True)
+        return build_detection_train_loader(cfg, mapper=mapper)
+        
     @classmethod
     def build_lr_scheduler(cls, cfg, optimizer):
         """
