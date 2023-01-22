@@ -224,16 +224,16 @@ class Trainer(DefaultTrainer):
         res = OrderedDict({k + "_TTA": v for k, v in res.items()})
         return res
 
+def register_custom_coco_dataset(dataset_path: str) -> None:
+    annotations_path = dataset_path + 'annotations/'
+    register_coco_instances("coco_train", {}, annotations_path + "instances_train2017.json", dataset_path + "train2017")
+    register_coco_instances("coco_valid", {}, annotations_path + "instances_val2017.json", dataset_path + "val2017")
+
 
 def setup(args):
     """
     Create configs and perform basic setups.
     """
-    project_path = '/home/ADND_J1/instance-segmentation-on-indoor-dataset'
-    dataset_path = project_path + '/coco/'
-    annotations_path = dataset_path + 'annotations/'
-    register_coco_instances("coco_train", {}, annotations_path + "instances_train2017.json", dataset_path + "train2017")
-    register_coco_instances("coco_valid", {}, annotations_path + "instances_val2017.json", dataset_path + "val2017")
     cfg = get_cfg()
 
     # for poly lr schedule
@@ -241,10 +241,8 @@ def setup(args):
     add_maskdino_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
-    cfg.DATASETS.TRAIN = ("coco_train",)
-    cfg.DATASETS.TEST = ("coco_valid",)
-    # cfg.OUTPUT_DIR = "./output_nipg1_lr00001_ITER334930_epoch10_batch1_debu"
-    cfg.OUTPUT_DIR = "./output_debug"
+    if args.output_dir: # If not keep the default value
+        cfg.OUTPUT_DIR = args.output_dir
     cfg.freeze()
     default_setup(cfg, args)
     setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="maskdino")
@@ -252,6 +250,7 @@ def setup(args):
 
 
 def main(args):
+    register_custom_coco_dataset(args.dataset_path)
     cfg = setup(args)
     print("Command cfg:", cfg)
     if args.eval_only:
@@ -271,7 +270,7 @@ def main(args):
         return res
 
     trainer = Trainer(cfg)
-    trainer.resume_or_load(resume=False)
+    trainer.resume_or_load(resume=cfg.resume)
     return trainer.train()
 
 
