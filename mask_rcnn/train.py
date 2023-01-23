@@ -13,69 +13,79 @@ from detectron2.data import build_detection_train_loader
 from detectron2.utils.events import EventStorage
 from eval import do_test
 from logger import logger
-from config import cfg
+from config import get_model_config
 
-PATIENCE = 500
-BEST_LOSS = np.inf 
 
-os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+def train_model(cfg):
 
-model = build_model(cfg)
-optimizer = build_optimizer(cfg, model)
-scheduler = build_lr_scheduler(cfg, optimizer)
+    PATIENCE = 500
+    BEST_LOSS = np.inf 
 
-checkpointer = DetectionCheckpointer(model, cfg.OUTPUT_DIR, optimizer=optimizer, scheduler=scheduler)
-start_iter = ( checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=False).get("iteration", -1) + 1)
-prev_iter = start_iter
-max_iter = cfg.SOLVER.MAX_ITER
+    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
-periodic_checkpointer = PeriodicCheckpointer(checkpointer, cfg.SOLVER.CHECKPOINT_PERIOD, max_iter=max_iter)
+    model = build_model(cfg)
+    optimizer = build_optimizer(cfg, model)
+    scheduler = build_lr_scheduler(cfg, optimizer)
 
-writers = default_writers(cfg.OUTPUT_DIR, max_iter) if comm.is_main_process() else []
+    checkpointer = DetectionCheckpointer(model, cfg.OUTPUT_DIR, optimizer=optimizer, scheduler=scheduler)
+    start_iter = ( checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=False).get("iteration", -1) + 1)
+    prev_iter = start_iter
+    max_iter = cfg.SOLVER.MAX_ITER
 
-data_loader = build_detection_train_loader(cfg)
+    periodic_checkpointer = PeriodicCheckpointer(checkpointer, cfg.SOLVER.CHECKPOINT_PERIOD, max_iter=max_iter)
 
-logger.info("Starting training from iteration {}".format(start_iter))
+    writers = default_writers(cfg.OUTPUT_DIR, max_iter) if comm.is_main_process() else []
 
-patience_counter = 0
+    data_loader = build_detection_train_loader(cfg)
 
-with EventStorage(start_iter) as storage:
-    for data, iteration in zip(data_loader, range(start_iter, max_iter)):
-        storage.iter = iteration
+    logger.info("Starting training from iteration {}".format(start_iter))
 
-        loss_dict = model(data)
-        losses = sum(loss_dict.values())
-        assert torch.isfinite(losses).all(), loss_dict
+    patience_counter = 0
 
-        loss_dict_reduced = {k: v.item() for k, v in comm.reduce_dict(loss_dict).items()}
-        losses_reduced = sum(loss for loss in loss_dict_reduced.values())
-        if comm.is_main_process():
-            storage.put_scalars(total_loss=losses_reduced, **loss_dict_reduced)
+    with EventStorage(start_iter) as storage:
+        for data, iteration in zip(data_loader, range(start_iter, max_iter)):
+            storage.iter = iteration
 
-        optimizer.zero_grad()
-        losses.backward()
-        optimizer.step()
-        storage.put_scalar("lr", optimizer.param_groups[0]["lr"], smoothing_hint=False)
-        scheduler.step()
+            loss_dict = model(data)
+            losses = sum(loss_dict.values())
+            assert torch.isfinite(losses).all(), loss_dict
 
-        if iteration - start_iter > 5 and (
-            (iteration + 1) % 20 == 0 or iteration == max_iter - 1
-        ):
-            for writer in writers:
-                writer.write()
-        periodic_checkpointer.step(iteration)
-        
-        if iteration > prev_iter:
-            prev_iter = iteration
-            if losses_reduced < BEST_LOSS:
-                BEST_LOSS = losses_reduced
-                patience_counter = 0
-            else:
-                patience_counter += 1
-                if patience_counter % 100 == 0:
-                    print(f"Loss has not improved for {patience_counter} iterations")
-                if patience_counter >= PATIENCE:
-                    print(f"EARLY STOPPING")
-                    break
-                
-do_test(cfg, model)
+            loss_dict_reduced = {k: v.item() for k, v in comm.reduce_dict(loss_dict).items()}
+            losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+            if comm.is_main_process():
+                storage.put_scalars(total_loss=losses_reduced, **loss_dict_reduced)
+
+            optimizer.zero_grad()
+            losses.backward()
+            optimizer.step()
+            storage.put_scalar("lr", optimizer.param_groups[0]["lr"], smoothing_hint=False)
+            scheduler.step()
+
+            if iteration - start_iter > 5 and (
+                (iteration + 1) % 20 == 0 or iteration == max_iter - 1
+            ):
+                for writer in writers:
+                    writer.write()
+            periodic_checkpointer.step(iteration)
+            
+            if iteration > prev_iter:
+                prev_iter = iteration
+                if losses_reduced < BEST_LOSS:
+                    BEST_LOSS = losses_reduced
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+                    if patience_counter % 100 == 0:
+                        print(f"Loss has not improved for {patience_counter} iterations")
+                    if patience_counter >= PATIENCE:
+                        print(f"EARLY STOPPING")
+                        break
+    return model
+
+def main():
+    cfg = get_model_config()
+    trained_model = train_model(cfg)
+    do_test(cfg, trained_model)
+
+if __name__ == "__main__":
+    main()                
