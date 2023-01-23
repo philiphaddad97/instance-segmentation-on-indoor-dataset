@@ -2,8 +2,6 @@ import os
 import numpy as np
 import torch
 
-from detectron2.utils.logger import setup_logger
-setup_logger()
 import detectron2.utils.comm as comm
 from detectron2.modeling import build_model
 from detectron2.solver import build_lr_scheduler, build_optimizer
