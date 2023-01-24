@@ -6,4 +6,5 @@ The main objective of the project finetune and run inference on a model capable 
 There are two directory one for each model and each one should be handled as a sperated project and run it on a different python environment.
 
 To get the benfits of apptainer we installed this image from Nvidia which handels the Pytorch installtion with CUDA support:
-```apptainer build --sandbox baseline docker://nvcr.io/nvidia/pytorch:22.12-py3```
+```apptainer build --sandbox apptainer_name docker://nvcr.io/nvidia/pytorch:22.12-py3```
+and to run it ```apptainer shell -w --nv apptainer_name/```
