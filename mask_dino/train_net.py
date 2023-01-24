@@ -258,6 +258,9 @@ def setup(args):
     add_maskdino_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+    register_custom_coco_dataset(args.dataset_path)
+    cfg.DATASETS.TRAIN = ("coco_train",)
+    cfg.DATASETS.TEST = ("coco_valid",)
     if args.output_dir:  # If not keep the default value
         cfg.OUTPUT_DIR = args.output_dir
     cfg.freeze()
@@ -269,7 +272,6 @@ def setup(args):
 
 
 def main(args):
-    register_custom_coco_dataset(args.dataset_path)
     cfg = setup(args)
     print("Command cfg:", cfg)
     if args.eval_only:
@@ -287,7 +289,7 @@ def main(args):
         return res
 
     trainer = Trainer(cfg)
-    trainer.resume_or_load(resume=cfg.resume)
+    trainer.resume_or_load(resume=args.resume)
     return trainer.train()
 
 
@@ -295,6 +297,8 @@ if __name__ == "__main__":
     parser = default_argument_parser()
     parser.add_argument("--eval_only", action="store_true")
     parser.add_argument("--EVAL_FLAG", type=int, default=1)
+    parser.add_argument("--output_dir", type=str, default="maskdino_output")
+    parser.add_argument("--dataset_path", type=str)
     args = parser.parse_args()
     # random port
     port = random.randint(1000, 20000)

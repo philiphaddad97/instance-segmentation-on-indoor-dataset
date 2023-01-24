@@ -93,8 +93,8 @@ def add_maskdino_config(cfg):
     # MaskDINO inference config
     cfg.MODEL.MaskDINO.TEST = CN()
     cfg.MODEL.MaskDINO.TEST.TEST_FOUCUS_ON_BOX = False
-    cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON = True
-    cfg.MODEL.MaskDINO.TEST.INSTANCE_ON = False
+    cfg.MODEL.MaskDINO.TEST.SEMANTIC_ON = False
+    cfg.MODEL.MaskDINO.TEST.INSTANCE_ON = True
     cfg.MODEL.MaskDINO.TEST.PANOPTIC_ON = False
     cfg.MODEL.MaskDINO.TEST.OBJECT_MASK_THRESHOLD = 0.0
     cfg.MODEL.MaskDINO.TEST.OVERLAP_THRESHOLD = 0.0
